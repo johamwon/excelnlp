@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExcelNLP - Excel自然语言分析工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #e9ecef;
+        }
+
+        .upload-section.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .upload-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .file-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .chat-section {
+            display: none;
+        }
+
+        .chat-container {
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: white;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            border-radius: 15px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.assistant {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .message .sender {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .message.user .sender {
+            color: #ffd700;
+        }
+
+        .message.assistant .sender {
+            color: #667eea;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 20px;
+            background: white;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input input:focus {
+            border-color: #667eea;
+        }
+
+        .chat-input button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .chat-input button:hover {
+            transform: scale(1.05);
+        }
+
+        .chat-input button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #c3e6cb;
+        }
+
+        .info-message {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #bee5eb;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 15px 20px;
+            background: #e9ecef;
+            border-radius: 15px;
+            max-width: 80px;
+            margin-bottom: 20px;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 ExcelNLP</h1>
+            <p>Excel自然语言分析工具 - 基于本地小模型的智能问答系统</p>
+        </div>
+
+        <div class="content">
+            <!-- 上传区域 -->
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-icon">📁</div>
+                <h2>上传Excel文件</h2>
+                <p style="margin: 15px 0; color: #666;">拖拽文件到此处，或点击下方按钮选择文件</p>
+                <p style="font-size: 0.9em; color: #999;">支持格式：.xlsx, .xls, .xlsm（最大50MB）</p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.xlsm" style="display: none;">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    选择文件
+                </button>
+                <div class="file-info" id="fileInfo"></div>
+            </div>
+
+            <!-- 聊天区域 -->
+            <div class="chat-section" id="chatSection">
+                <div class="info-message" id="fileInfoDisplay"></div>
+                
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message assistant">
+                            <div class="sender">ExcelNLP助手</div>
+                            <div>您好！我已经成功加载了Excel文件。您可以向我提问，我会帮您分析表格数据并回答问题。</div>
+                        </div>
+                    </div>
+                    <div class="typing-indicator" id="typingIndicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="questionInput" placeholder="请输入您的问题..." onkeypress="handleKeyPress(event)">
+                        <button onclick="askQuestion()" id="sendBtn">发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFilePath = null;
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // 文件上传处理
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInfo = document.getElementById('fileInfo');
+        const chatSection = document.getElementById('chatSection');
+        const fileInfoDisplay = document.getElementById('fileInfoDisplay');
+
+        fileInput.addEventListener('change', handleFileUpload);
+
+        // 拖拽上传
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileUpload({ target: fileInput });
+            }
+        });
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+                <strong>文件名：</strong>${file.name}<br>
+                <strong>文件大小：</strong>${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                <strong>上传中...</strong>
+            `;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('上传失败');
+                }
+
+                const result = await response.json();
+                uploadedFilePath = result.file_path;
+
+                fileInfo.innerHTML = `
+                    <strong>✅ 上传成功！</strong><br>
+                    <strong>文件名：</strong>${result.file_name}<br>
+                    <strong>工作表数量：</strong>${result.excel_info.total_sheets}<br>
+                    <strong>工作表列表：</strong>${result.excel_info.sheets.map(s => s.name).join(', ')}
+                `;
+
+                // 显示聊天区域
+                fileInfoDisplay.innerHTML = `
+                    <strong>当前文件：</strong>${result.file_name}<br>
+                    <strong>工作表数量：</strong>${result.excel_info.total_sheets}
+                `;
+                chatSection.style.display = 'block';
+
+                // 滚动到聊天区域
+                setTimeout(() => {
+                    chatSection.scrollIntoView({ behavior: 'smooth' });
+                }, 500);
+
+            } catch (error) {
+                fileInfo.innerHTML = `
+                    <strong>❌ 上传失败：</strong>${error.message}
+                `;
+            }
+        }
+
+        // 处理回车键
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                askQuestion();
+            }
+        }
+
+        // 提问
+        async function askQuestion() {
+            const questionInput = document.getElementById('questionInput');
+            const question = questionInput.value.trim();
+
+            if (!question) return;
+            if (!uploadedFilePath) {
+                alert('请先上传Excel文件！');
+                return;
+            }
+
+            // 显示用户消息
+            addMessage('user', question);
+            questionInput.value = '';
+
+            // 显示加载状态
+            const typingIndicator = document.getElementById('typingIndicator');
+            typingIndicator.style.display = 'block';
+            scrollToBottom();
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+
+            try {
+                // 先尝试使用简单的数据查询接口
+                const formData = new FormData();
+                formData.append('file_path', uploadedFilePath);
+                formData.append('question', question);
+
+                const response = await fetch(`${API_BASE_URL}/simple_query`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('请求失败');
+                }
+
+                const result = await response.json();
+
+                // 显示助手回复
+                let answerText = result.result.answer || '抱歉，我无法回答这个问题。';
+                
+                // 添加数据来源信息
+                if (result.result.source) {
+                    answerText += `\n\n数据来源：${result.result.source}`;
+                }
+
+                // 添加证据信息
+                if (result.result.evidence && result.result.evidence.length > 0) {
+                    answerText += `\n\n相关数据：\n${result.result.evidence.join('\n')}`;
+                }
+
+                addMessage('assistant', answerText);
+
+            } catch (error) {
+                addMessage('assistant', `❌ 抱歉，处理您的问题时出错：${error.message}\n\n💡 提示：请确保Excel文件已正确上传，或者尝试使用更简单的问题。`);
+            } finally {
+                typingIndicator.style.display = 'none';
+                sendBtn.disabled = false;
+                scrollToBottom();
+            }
+        }
+
+        // 添加消息到聊天界面
+        function addMessage(sender, text) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const senderName = sender === 'user' ? '您' : 'ExcelNLP助手';
+            
+            messageDiv.innerHTML = `
+                <div class="sender">${senderName}</div>
+                <div>${text.replace(/\n/g, '<br>')}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // 滚动到底部
+        function scrollToBottom() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    </script>
+</body>
+</html>

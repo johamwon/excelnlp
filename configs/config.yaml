@@ -1,0 +1,93 @@
+# ExcelNLP 配置文件
+
+# 模型配置
+model:
+  # 本地模型类型: ollama, llama-cpp
+  type: "ollama"
+  # 模型名称
+  name: "qwen3:4b"
+  # Ollama服务地址
+  host: "http://localhost:11434"
+  # 超时时间（秒）
+  timeout: 120
+  # 最大token数
+  max_tokens: 2048
+  # 温度参数
+  temperature: 0.7
+
+# Excel处理配置
+excel:
+  # 支持的文件类型
+  supported_formats: [".xlsx", ".xls", ".xlsm"]
+  # 最大文件大小（MB）
+  max_file_size: 50
+  # 最大工作表数
+  max_sheets: 20
+  # 最大行数
+  max_rows: 10000
+  # 最大列数
+  max_cols: 500
+
+# 规则引擎配置
+rules:
+  # 分类规则配置文件路径
+  classification_rules: "configs/classification_rules.yaml"
+  # 启用的分类器
+  enabled_classifiers:
+    - keyword_based
+    - structure_based
+    - pattern_based
+
+# 信息抽取配置
+extraction:
+  # Prompt模板路径
+  prompt_templates: "prompts/extraction/"
+  # 抽取策略
+  strategy: "hybrid"  # rule_based, model_based, hybrid
+  # 实体类型
+  entity_types:
+    - numeric
+    - date
+    - text
+    - formula
+    - currency
+    - percentage
+
+# 问答系统配置
+qa:
+  # 问答Prompt模板
+  prompt_template: "prompts/qa/question_answering.txt"
+  # 最大上下文长度
+  max_context_length: 8000
+  # 支持的问题类型
+  question_types:
+    - data_query
+    - calculation
+    - comparison
+    - trend_analysis
+    - summary
+
+# API服务配置
+api:
+  host: "0.0.0.0"
+  port: 8000
+  # 是否启用CORS
+  enable_cors: true
+  # 允许的源
+  allowed_origins:
+    - "*"
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+  rotation: "10 MB"
+  retention: "30 days"
+  # 日志文件路径
+  file: "logs/excelnlp.log"
+
+# 缓存配置
+cache:
+  enabled: true
+  type: "memory"  # memory, redis
+  ttl: 3600  # 缓存过期时间（秒）
