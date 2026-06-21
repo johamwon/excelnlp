@@ -1,0 +1,32 @@
+# 手机自动化 Agent 配置
+
+# 设备配置
+device:
+  # adb 设备序列号；留空则连接默认设备（adb devices 查看）
+  serial: ""
+
+# 决策大脑配置
+brain:
+  # 决策器类型: claude（多模态，推荐）/ ollama（本地，无需联网）
+  provider: "claude"
+
+  # Claude 配置（provider=claude 时生效）
+  claude:
+    # 模型 ID，默认使用最新最强的 Opus 4.8
+    model: "claude-opus-4-8"
+    # API Key 留空则读取环境变量 ANTHROPIC_API_KEY
+    api_key: ""
+    # 是否开启自适应思考（决策更稳，略慢）
+    use_thinking: true
+
+  # Ollama 配置（provider=ollama 时生效）
+  ollama:
+    model: "qwen2.5:7b"
+    host: "http://localhost:11434"
+
+# Agent 运行配置
+agent:
+  # 单个任务最大步数（防止死循环）
+  max_steps: 15
+  # 是否给决策器发送标注截图（Claude 推荐 true；纯本地文本模型可设 false）
+  use_vision: true

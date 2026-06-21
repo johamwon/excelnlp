@@ -21,3 +21,8 @@ durable-rules==1.0.0
 # 工具库
 python-dotenv==1.0.0
 loguru==0.7.2
+
+# 手机自动化 Agent（mobile_agent.py）
+uiautomator2==3.2.5      # 开源 Android UI 自动化（ADB 控制小米手机）
+Pillow==10.2.0           # 截图标注
+anthropic==0.40.0        # Claude 多模态决策（provider=claude 时需要）
