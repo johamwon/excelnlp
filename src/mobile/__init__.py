@@ -14,7 +14,7 @@
 """
 from .device import Device
 from .actions import ActionExecutor
-from .llm import Brain, ClaudeBrain, OllamaBrain, create_brain
+from .llm import Brain, ClaudeBrain, OllamaBrain, LocalVisionBrain, create_brain
 from .agent import MobileAgent
 
 __all__ = [
@@ -23,6 +23,7 @@ __all__ = [
     "Brain",
     "ClaudeBrain",
     "OllamaBrain",
+    "LocalVisionBrain",
     "create_brain",
     "MobileAgent",
 ]

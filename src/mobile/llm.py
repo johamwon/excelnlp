@@ -4,10 +4,12 @@ Agent 大脑（LLM 决策器）
 负责：给定「任务 + 当前界面」，输出下一步动作（action 字典）。
 做成可插拔，方便后续定制 / 更换模型：
 
-- ClaudeBrain : 调用 Claude（多模态），直接「看」带编号的截图来决策，能力最强（推荐）。
-- OllamaBrain : 调用本地 Ollama 文本模型，基于界面元素文本列表决策，无需联网、隐私安全。
+- ClaudeBrain      : 调用 Claude（多模态），直接「看」带编号的截图来决策，能力最强（推荐）。
+- OllamaBrain      : 调用本地 Ollama 文本模型，基于界面元素文本列表决策，无需联网。
+- LocalVisionBrain : 调用「端侧」Ollama 多模态模型（手机里用 Termux 跑），既看截图又看元素，
+                     全程在手机上推理、彻底不联网、不依赖电脑。
 
-两者都返回符合 actions.ACTION_JSON_SCHEMA 的字典。
+三者都返回符合 actions.ACTION_JSON_SCHEMA 的字典。
 """
 import base64
 import json
@@ -47,6 +49,26 @@ def _format_elements(elements: List[Dict[str, Any]]) -> str:
         kind_str = f"({','.join(kind)})" if kind else ""
         lines.append(f"[{el['index']}] {label} {kind_str}".strip())
     return "\n".join(lines) if lines else "（当前界面没有可识别的元素）"
+
+
+def _extract_json(text: str) -> Dict[str, Any]:
+    """从模型输出里尽量稳健地解析出 JSON 对象（小模型常带多余文字 / 代码块）"""
+    s = text.strip()
+    if s.startswith("```"):
+        s = s.strip("`")
+        if s[:4].lower() == "json":
+            s = s[4:]
+    # 截取首个 { 到最后一个 }，丢掉前后的废话
+    start, end = s.find("{"), s.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        s = s[start:end + 1]
+    return json.loads(s)
+
+
+def _msg_content(resp: Any) -> str:
+    """兼容 ollama 新旧版本返回（dict / 带属性的对象）"""
+    msg = resp["message"] if isinstance(resp, dict) else resp.message
+    return msg["content"] if isinstance(msg, dict) else msg.content
 
 
 class Brain:
@@ -138,12 +160,73 @@ class OllamaBrain(Brain):
         return self.client.chat_with_json(prompt=prompt, system_prompt=SYSTEM_PROMPT)
 
 
+class LocalVisionBrain(Brain):
+    """端侧多模态决策器：在「手机本机」用 Ollama 跑的视觉模型来决策。
+
+    与 OllamaBrain 的区别：
+    - 既看标注截图、又看元素文本（真·多模态），定位更准；
+    - 默认连本机 127.0.0.1，意味着模型就跑在手机里（Termux），
+      推理全程在端侧完成，不联网、也不需要电脑。
+
+    需要手机端 Ollama 已拉取一个视觉模型，例如：
+      minicpm-v（质量好）/ llava-phi3、moondream（更小更快）。
+    """
+
+    def __init__(self, model: str = "minicpm-v",
+                 host: str = "http://127.0.0.1:11434",
+                 use_vision: bool = True):
+        """
+        Args:
+            model: 手机端 Ollama 里的视觉模型名（需先 ollama pull）
+            host: Ollama 服务地址；端侧部署时指向本机 127.0.0.1
+            use_vision: 是否把截图喂给模型（端侧视觉建议 True）
+        """
+        import ollama
+
+        self.client = ollama.Client(host=host)
+        self.model = model
+        self.use_vision = use_vision
+        logger.info(f"端侧视觉决策器初始化完成，模型: {model}, 地址: {host}")
+
+    def decide(self, task: str, elements: List[Dict[str, Any]],
+               history: List[str], screenshot_path: Optional[str] = None) -> Dict[str, Any]:
+        prompt = (
+            f"用户任务：{task}\n\n"
+            f"已执行的操作历史：\n{chr(10).join(history) or '（无）'}\n\n"
+            f"当前界面元素（截图中红框内的编号与此一致）：\n{_format_elements(elements)}\n\n"
+            f"请只返回一个 JSON 对象表示下一步动作，"
+            f"字段：thought, action, index, text, direction, app。"
+        )
+
+        user_msg: Dict[str, Any] = {"role": "user", "content": prompt}
+        if self.use_vision and screenshot_path:
+            with open(screenshot_path, "rb") as f:
+                user_msg["images"] = [f.read()]  # ollama 接受图片字节
+
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            user_msg,
+        ]
+        options = {"temperature": 0}
+
+        # 优先用结构化输出（Ollama >=0.5 支持传 JSON Schema）；老版本退回 format="json"
+        try:
+            resp = self.client.chat(model=self.model, messages=messages,
+                                    format=ACTION_JSON_SCHEMA, options=options)
+        except Exception as e:
+            logger.warning(f"端侧结构化输出不可用（{e}），退回 format=json")
+            resp = self.client.chat(model=self.model, messages=messages,
+                                    format="json", options=options)
+
+        return _extract_json(_msg_content(resp))
+
+
 def create_brain(provider: str, **kwargs) -> Brain:
     """
     根据配置创建决策器
 
     Args:
-        provider: "claude" 或 "ollama"
+        provider: "claude" / "ollama" / "local"
         **kwargs: 传给对应决策器的参数
     """
     provider = provider.lower()
@@ -151,4 +234,6 @@ def create_brain(provider: str, **kwargs) -> Brain:
         return ClaudeBrain(**kwargs)
     if provider == "ollama":
         return OllamaBrain(**kwargs)
-    raise ValueError(f"不支持的决策器类型: {provider}（可选: claude / ollama）")
+    if provider == "local":
+        return LocalVisionBrain(**kwargs)
+    raise ValueError(f"不支持的决策器类型: {provider}（可选: claude / ollama / local）")

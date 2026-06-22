@@ -38,7 +38,15 @@ Agent 会自动循环：**截屏 + 读取界面元素 → 交给大模型决定�
 |------|------|------|
 | 设备控制 | [uiautomator2](https://github.com/openatx/uiautomator2) | 通过 ADB 控制手机，截屏、点击、输入、读取界面层级 |
 | Agent 范式 | [AppAgent](https://github.com/mnotgod96/AppAgent) / [Mobile-Agent](https://github.com/X-PLUG/MobileAgent) | 截图编号标注 + LLM 决策的手机 Agent 思路 |
-| 决策大脑 | Claude（多模态，推荐）/ [Ollama](https://github.com/ollama/ollama)（本地） | 看界面、做决策、输出动作 |
+| 决策大脑 | Claude（多模态，推荐）/ [Ollama](https://github.com/ollama/ollama)（本地/端侧） | 看界面、做决策、输出动作 |
+
+三种决策大脑（`provider`）：
+
+| provider | 模型跑在哪 | 看截图 | 是否联网 | 是否要电脑 | 适合 |
+|----------|-----------|:------:|:--------:|:----------:|------|
+| `claude` | 云端 | ✅ | 需要 | 需要 | 能力最强，复杂任务 |
+| `ollama` | 电脑本地 | ❌（纯文本） | 不需要 | 需要 | 隐私敏感、有电脑 |
+| `local`  | **手机里（Termux）** | ✅ | **不需要** | **不需要** | 彻底端侧、随身离线 |
 
 ## 目录结构
 
@@ -105,6 +113,41 @@ python -m uiautomator2 init
   ```
 - **用本地 Ollama（无需联网、隐私安全）**：`provider: ollama`，并确保 Ollama 在运行
   （本仓库已用到 Ollama，参见主 README）。本地纯文本模型建议关闭视觉（`--no-vision`）。
+- **端侧视觉（`provider: local`，模型也跑在手机里、彻底离线）**：见下方专节。
+
+## 端侧视觉：把模型也搬进手机（彻底离线，连电脑都不要）
+
+`provider: local` 让「看截图 + 做决策」的多模态模型直接在手机里运行，
+推理全程在端侧、不联网、也不依赖电脑。做法是在手机的
+[Termux](https://github.com/termux/termux-app)（安卓上的 Linux 终端）里把整套跑起来。
+
+1. **装 Termux**：从 F-Droid / GitHub Releases 安装（应用商店版本较旧，不推荐）。
+
+2. **在 Termux 里装运行环境**：
+   ```bash
+   pkg update && pkg install python git
+   pip install uiautomator2 Pillow ollama loguru pyyaml
+   ```
+
+3. **在手机上装并启动 Ollama**，拉一个小型视觉模型：
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh   # 或参考 Ollama 安卓/Termux 说明
+   ollama serve &                                   # 监听 127.0.0.1:11434
+   ollama pull minicpm-v       # 质量好；机型吃力可换 moondream / llava-phi3（更小更快）
+   ```
+
+4. **本机自连**：手机自己控制自己，uiautomator2 连本机即可（同机的 ADB / ATX-Agent）。
+   把代码拷进手机（`git clone` 本仓库或解压功能包），确保
+   `configs/mobile_config.yaml` 里 `provider: local`、`brain.local.host: http://127.0.0.1:11434`。
+
+5. **跑起来**（在 Termux 内）：
+   ```bash
+   python mobile_agent.py "打开设置，进入WLAN页面" --provider local
+   ```
+
+> 提示：端侧小模型的决策能力弱于 Claude，建议任务描述写具体、`max_steps` 调大一点；
+> 机型内存有限时优先选更小的视觉模型，或退回 `--no-vision` 用纯文本（更快但更弱）。
+> 手机端 Ollama 升到 0.5+ 可启用 JSON Schema 结构化输出（决策更稳），老版本会自动退回。
 
 ## 使用
 
@@ -112,7 +155,10 @@ python -m uiautomator2 init
 # 一句话指挥（读取 configs/mobile_config.yaml）
 python mobile_agent.py "打开设置，进入WLAN页面"
 
-# 指定本地模型、关闭截图
+# 端侧视觉：模型也跑在手机里，全程离线（见上方 Termux 专节）
+python mobile_agent.py "打开计算器" --provider local
+
+# 电脑本地纯文本模型、关闭截图
 python mobile_agent.py "打开计算器" --provider ollama --no-vision
 
 # 交互模式：连续下达多个任务
@@ -125,7 +171,7 @@ python mobile_agent.py
 from src.mobile import Device, MobileAgent, create_brain
 
 device = Device()                      # 连接默认手机
-brain = create_brain("claude")         # 或 create_brain("ollama")
+brain = create_brain("claude")         # 或 "ollama"（电脑本地）/ "local"（手机端侧视觉）
 agent = MobileAgent(device, brain, max_steps=15)
 agent.run("打开小米商城，搜索 手机壳")
 ```

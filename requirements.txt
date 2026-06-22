@@ -26,3 +26,5 @@ loguru==0.7.2
 uiautomator2==3.2.5      # 开源 Android UI 自动化（ADB 控制小米手机）
 Pillow==10.2.0           # 截图标注
 anthropic==0.40.0        # Claude 多模态决策（provider=claude 时需要）
+# provider=local（端侧视觉）复用上面的 ollama 库；建议手机端 Ollama 升到 0.5+ 以获得
+# JSON Schema 结构化输出，老版本会自动退回 format=json。

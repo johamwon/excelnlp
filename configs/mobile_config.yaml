@@ -7,7 +7,10 @@ device:
 
 # 决策大脑配置
 brain:
-  # 决策器类型: claude（多模态，推荐）/ ollama（本地，无需联网）
+  # 决策器类型:
+  #   claude —— 云端多模态，能力最强（推荐）
+  #   local  —— 端侧多模态，模型跑在手机里（Termux），看截图决策，全程离线、不用电脑
+  #   ollama —— 本地纯文本模型（跑在电脑上），无需联网
   provider: "claude"
 
   # Claude 配置（provider=claude 时生效）
@@ -18,6 +21,13 @@ brain:
     api_key: ""
     # 是否开启自适应思考（决策更稳，略慢）
     use_thinking: true
+
+  # 端侧视觉配置（provider=local 时生效）—— 模型跑在手机本机的 Ollama 里
+  local:
+    # 手机端 Ollama 已拉取的视觉模型；minicpm-v 质量好，moondream / llava-phi3 更小更快
+    model: "minicpm-v"
+    # 指向本机：在手机 Termux 里运行时即手机自身
+    host: "http://127.0.0.1:11434"
 
   # Ollama 配置（provider=ollama 时生效）
   ollama:

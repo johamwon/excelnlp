@@ -54,6 +54,13 @@ def build_agent(config: dict, provider_override: str = None,
             api_key=c.get("api_key") or None,
             use_thinking=c.get("use_thinking", True),
         )
+    elif provider == "local":
+        l = brain_cfg.get("local", {})
+        brain = create_brain(
+            "local",
+            model=l.get("model", "minicpm-v"),
+            host=l.get("host", "http://127.0.0.1:11434"),
+        )
     else:
         o = brain_cfg.get("ollama", {})
         brain = create_brain(
@@ -64,7 +71,7 @@ def build_agent(config: dict, provider_override: str = None,
 
     use_vision = use_vision_override if use_vision_override is not None \
         else agent_cfg.get("use_vision", True)
-    # 本地文本模型默认不发截图
+    # 纯文本本地模型（ollama）默认不发截图；端侧视觉模型（local）保留截图
     if provider == "ollama" and use_vision_override is None:
         use_vision = False
 
@@ -80,7 +87,8 @@ def main():
     parser = argparse.ArgumentParser(description="用自然语言操控 Android / 小米手机")
     parser.add_argument("task", nargs="?", help="要执行的任务，如「打开微信」；不填则进入交互模式")
     parser.add_argument("--config", default="configs/mobile_config.yaml", help="配置文件路径")
-    parser.add_argument("--provider", choices=["claude", "ollama"], help="覆盖决策器类型")
+    parser.add_argument("--provider", choices=["claude", "ollama", "local"],
+                        help="覆盖决策器类型（local=手机端侧视觉模型，全程离线）")
     parser.add_argument("--no-vision", action="store_true", help="不向决策器发送截图")
     args = parser.parse_args()
 
